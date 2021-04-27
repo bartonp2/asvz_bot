@@ -16,7 +16,8 @@ import telegram_send
 import geckodriver_autoinstaller
 from datetime import datetime, timedelta
 from selenium import webdriver
-from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.chrome.options import Options
+# from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -66,7 +67,7 @@ def asvz_enroll(args):
     options = Options()
     options.headless = True
     options.add_argument("--private")  # open in private mode to avoid different login scenario
-    driver = webdriver.Firefox(options=options)
+    driver = webdriver.Chrome(options=options, executable_path='/usr/bin/chromedriver')
 
     print('Attempting to get sportfahrplan')
     driver.get(config['lesson']['sportfahrplan_particular'])
