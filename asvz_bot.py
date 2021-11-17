@@ -83,12 +83,14 @@ def asvz_enroll(args):
     if config['lesson']['description']:
         lesson_xpath += "[contains(., '" + config['lesson']['description'] + "')]"
 
-    try:
-        lesson_ele = day_ele.find_element_by_xpath(lesson_xpath)
-    except NoSuchElementException as identifier:
-        # click on "load more" button
-        driver.find_element_by_xpath("//button[@class='btn btn--primary separator__btn']").click()
-        lesson_ele = day_ele.find_element_by_xpath(lesson_xpath)
+    found = False
+    while not found:
+        try:
+            lesson_ele = day_ele.find_element_by_xpath(lesson_xpath)
+            found = True
+        except NoSuchElementException as identifier:
+            # click on "load more" button
+            driver.find_element_by_xpath("//button[@class='btn btn--primary separator__btn']").click()
 
     # check if the lesson is already booked out
     full = len(lesson_ele.find_elements_by_xpath(".//div[contains(text(), 'Keine freien')]"))
@@ -165,7 +167,7 @@ parser.add_argument('--retry_time', type=int, default=5,
                     help='Time between retrying when class is already fully booked in seconds')
 parser.add_argument('--max_wait', type=int, default=20, help='Max driver wait time (s) when attempting an action')
 parser.add_argument('-t', '--telegram_notifications', action='store_true', help='Whether to use telegram-send for notifications')
-args = parser.parse_args()
+args = parser.parse_args(["config.ini"])
 
 config = configparser.ConfigParser(allow_no_value=True)
 config.read(args.config_file)
