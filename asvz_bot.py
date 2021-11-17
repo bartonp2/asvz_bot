@@ -90,6 +90,7 @@ def asvz_enroll(args):
             found = True
         except NoSuchElementException as identifier:
             # click on "load more" button
+            print('Loading more lessons')
             driver.find_element_by_xpath("//button[@class='btn btn--primary separator__btn']").click()
 
     # check if the lesson is already booked out
@@ -126,6 +127,12 @@ def asvz_enroll(args):
     driver.find_element_by_xpath("//input[@id='username']").send_keys(config['creds']['username'])
     driver.find_element_by_xpath("//input[@id='password']").send_keys(config['creds']['password'])
     driver.find_element_by_xpath("//button[@type='submit']").click()
+    try:
+        driver.find_element_by_xpath("//input[@id='username']")
+        print("Login not successfull. Are the credentials correct?")
+        return "Login not successfull. Are the credentials correct?"
+    except NoSuchElementException:
+        pass
     print('Logged in')
 
     enroll_button_locator = (By.XPATH,
@@ -167,7 +174,7 @@ parser.add_argument('--retry_time', type=int, default=5,
                     help='Time between retrying when class is already fully booked in seconds')
 parser.add_argument('--max_wait', type=int, default=20, help='Max driver wait time (s) when attempting an action')
 parser.add_argument('-t', '--telegram_notifications', action='store_true', help='Whether to use telegram-send for notifications')
-args = parser.parse_args(["config.ini"])
+args = parser.parse_args()
 
 config = configparser.ConfigParser(allow_no_value=True)
 config.read(args.config_file)
