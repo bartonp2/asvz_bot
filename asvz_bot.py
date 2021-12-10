@@ -80,7 +80,7 @@ def asvz_enroll(args):
 
     # search in day div after corresponding location and time
     lesson_xpath = ".//li[@class='btn-hover-parent'][contains(., '" + config['lesson']['facility'] + "')][contains(., '" \
-                        + config['lesson']['lesson_time'] + 'bis'"')]"
+                        + config['lesson']['lesson_time'] + "')]"
     if config['lesson']['description']:
         lesson_xpath += "[contains(., '" + config['lesson']['description'] + "')]"
 
@@ -138,7 +138,7 @@ def asvz_enroll(args):
         return False
 
     try:
-        enroll_button = WebDriverWait(driver, args.max_wait).until(EC.element_to_be_clickable(enroll_button_locator))
+        enroll_button = WebDriverWait(driver, 60).until(EC.element_to_be_clickable(enroll_button_locator))
     except:
         driver.quit()
         raise ('Enroll button is disabled. Enrollment is likely not open yet.')
