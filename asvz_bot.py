@@ -84,12 +84,15 @@ def asvz_enroll(args):
     if config['lesson']['description']:
         lesson_xpath += "[contains(., '" + config['lesson']['description'] + "')]"
 
-    try:
-        lesson_ele = day_ele.find_element_by_xpath(lesson_xpath)
-    except NoSuchElementException as identifier:
-        # click on "load more" button
-        driver.find_element_by_xpath("//button[@class='btn btn--primary separator__btn']").click()
-        lesson_ele = day_ele.find_element_by_xpath(lesson_xpath)
+    found = False
+    while not found:
+        try:
+            lesson_ele = day_ele.find_element_by_xpath(lesson_xpath)
+            found = True
+        except NoSuchElementException as identifier:
+            # click on "load more" button
+            print('Loading more lessons')
+            driver.find_element_by_xpath("//button[@class='btn btn--primary separator__btn']").click()
 
     # check if the lesson is already booked out
     full = len(lesson_ele.find_elements_by_xpath(".//div[contains(text(), 'Keine freien')]"))
@@ -125,6 +128,12 @@ def asvz_enroll(args):
     driver.find_element_by_xpath("//input[@id='username']").send_keys(config['creds']['username'])
     driver.find_element_by_xpath("//input[@id='password']").send_keys(config['creds']['password'])
     driver.find_element_by_xpath("//button[@type='submit']").click()
+    try:
+        driver.find_element_by_xpath("//input[@id='username']")
+        print("Login not successfull. Are the credentials correct?")
+        return "Login not successfull. Are the credentials correct?"
+    except NoSuchElementException:
+        pass
     print('Logged in')
 
     enroll_button_locator = (By.XPATH,
