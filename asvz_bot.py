@@ -136,7 +136,7 @@ def asvz_enroll(args):
     print('Starting browser')
     options = Options()
     # options.headless = True
-    # options.add_argument('--headless')
+    options.add_argument('--headless')
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--no-sandbox")
@@ -210,10 +210,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='ASVZ Bot script')
     parser.add_argument('config_file', type=str, help='config file name')
-    parser.add_argument('--retry_time', type=float, default=5,
+    parser.add_argument('--retry_time', type=float, default=0.33,
                         help='Time between retrying when class is already fully booked in minutes')
-    parser.add_argument('--max_wait', type=int, default=15, help='Max driver wait time (s) when attempting an action')
-    parser.add_argument('-t', '--telegram_notifications', action='store_true', help='Whether to use telegram-send for notifications')
+    parser.add_argument('--max_wait', type=int, default=5, help='Max driver wait time (s) when attempting an action')
+    parser.add_argument('-t', '--telegram_notifications', action='store_false', help='Whether to use telegram-send for notifications')
     args = parser.parse_args()
 
     config = configparser.ConfigParser(allow_no_value=True)
