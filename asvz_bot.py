@@ -66,16 +66,22 @@ def asvz_enroll(args):
     print('Attempting enroll...')
     options = Options()
     options.headless = True
+    options.add_argument('--headless')
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--window-size=1920,1080")
     options.add_argument("--private")  # open in private mode to avoid different login scenario
-    driver = webdriver.Chrome(options=options, executable_path='/usr/bin/chromedriver')
+    driver = webdriver.Chrome(options=options)
 
     print('Attempting to get sportfahrplan')
+    print(config['lesson']['sportfahrplan_particular'])
     driver.get(config['lesson']['sportfahrplan_particular'])
     driver.implicitly_wait(5)  # wait 5 seconds if not defined differently
     print("Sportfahrplan retrieved")
 
     # find corresponding day div:
-    day_ele = driver.find_element_by_xpath(
+    day_ele = driver.find_element("xpath", 
         "//div[@class='teaser-list-calendar__day'][contains(., '" + config['lesson']['day'] + "')]")
 
     # search in day div after corresponding location and time
@@ -85,14 +91,14 @@ def asvz_enroll(args):
         lesson_xpath += "[contains(., '" + config['lesson']['description'] + "')]"
 
     try:
-        lesson_ele = day_ele.find_element_by_xpath(lesson_xpath)
+        lesson_ele = day_ele.find_element("xpath", lesson_xpath)
     except NoSuchElementException as identifier:
         # click on "load more" button
-        driver.find_element_by_xpath("//button[@class='btn btn--primary separator__btn']").click()
-        lesson_ele = day_ele.find_element_by_xpath(lesson_xpath)
+        driver.find_element("xpath", "//button[@class='btn btn--primary separator__btn']").click()
+        lesson_ele = day_ele.find_element("xpath", lesson_xpath)
 
     # check if the lesson is already booked out
-    full = len(lesson_ele.find_elements_by_xpath(".//div[contains(text(), 'Keine freien')]"))
+    full = len(lesson_ele.find_elements("xpath", ".//div[contains(text(), 'Keine freien')]"))
     if full:
         print('Lesson already fully booked. Retrying in ' + str(args.retry_time) + 'min')
         driver.quit()
@@ -118,13 +124,13 @@ def asvz_enroll(args):
         (By.XPATH, "//button[@class='btn btn-warning btn-block' and @title='SwitchAai Account Login']"))).click()
 
     # choose organization:
-    organization = driver.find_element_by_xpath("//input[@id='userIdPSelection_iddtext']")
+    organization = driver.find_element("xpath", "//input[@id='userIdPSelection_iddtext']")
     organization.send_keys(config['creds']['organisation'])
     organization.send_keys(u'\ue006')
 
-    driver.find_element_by_xpath("//input[@id='username']").send_keys(config['creds']['username'])
-    driver.find_element_by_xpath("//input[@id='password']").send_keys(config['creds']['password'])
-    driver.find_element_by_xpath("//button[@type='submit']").click()
+    driver.find_element("xpath", "//input[@id='username']").send_keys(config['creds']['username'])
+    driver.find_element("xpath", "//input[@id='password']").send_keys(config['creds']['password'])
+    driver.find_element("xpath", "//button[@type='submit']").click()
     print('Logged in')
 
     enroll_button_locator = (By.XPATH,
@@ -162,8 +168,8 @@ geckodriver_autoinstaller.install()
 
 parser = argparse.ArgumentParser(description='ASVZ Bot script')
 parser.add_argument('config_file', type=str, help='config file name')
-parser.add_argument('--retry_time', type=int, default=5,
-                    help='Time between retrying when class is already fully booked in seconds')
+parser.add_argument('--retry_time', type=float, default=5,
+                    help='Time between retrying when class is already fully booked in minutes')
 parser.add_argument('--max_wait', type=int, default=20, help='Max driver wait time (s) when attempting an action')
 parser.add_argument('-t', '--telegram_notifications', action='store_true', help='Whether to use telegram-send for notifications')
 args = parser.parse_args()
