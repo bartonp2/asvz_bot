@@ -197,8 +197,9 @@ def main():
             raise
 
     if args.telegram_notifications:
-        telegram_send.send(messages=['Enrolled successfully :D', "------------", success])
-    print("Script finished successfully")
+        asyncio.run(send_telegram_msg('Enrolled successfully :D'))
+        print("Script finished successfully")
+
 
 if __name__ == "__main__":
     # ==== run enrollment script ============================================
