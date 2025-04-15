@@ -64,11 +64,18 @@ def waiting_fct():
 
 
 def login_switchai(driver):
-    # switch to new window:
-    # time.sleep(2)  # necessary because tab needs to be open to get window handles
-    # tabs = driver.window_handles
-    # print(tabs)
-    # driver.switch_to.window(tabs[1])
+    # Check whether we have to login
+    login_button_locator = (By.XPATH, "//button[@class='btn btn-default' and @title='Login']")
+
+    try:
+        login_visible = WebDriverWait(driver, args.max_wait).until(EC.visibility_of_element_located(login_button_locator))
+        if not login_visible:
+            print("Probably already logged in")
+            return True
+    except:
+        print("Probably already logged in")
+        return True
+
     WebDriverWait(driver, args.max_wait).until(EC.element_to_be_clickable(
         (By.XPATH, "//button[@class='btn btn-default' and @title='Login']"))).click()
     WebDriverWait(driver, args.max_wait).until(EC.element_to_be_clickable(
@@ -85,18 +92,7 @@ def login_switchai(driver):
     print('Logged in')
 
 
-def asvz_enroll(args):
-    print('Attempting enroll...')
-    options = Options()
-    # options.headless = True
-    # options.add_argument('--headless')
-    options.add_argument("--disable-extensions")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--window-size=1920,1080")
-    options.add_argument("--private")  # open in private mode to avoid different login scenario
-    driver = webdriver.Chrome(options=options)
-
+def find_training_and_open_url(driver):
     print('Attempting to get sportfahrplan')
     print(config['lesson']['sportfahrplan_particular'])
     driver.get(config['lesson']['sportfahrplan_particular'])
@@ -120,82 +116,108 @@ def asvz_enroll(args):
         driver.find_element("xpath", "//button[@class='btn btn--primary separator__btn']").click()
         lesson_ele = day_ele.find_element("xpath", lesson_xpath)
 
+    
     # check if the lesson is already booked out
-    full = len(lesson_ele.find_elements("xpath", ".//div[contains(text(), 'Keine freien')]"))
-    if full:
-        print('Lesson already fully booked. Retrying in ' + str(args.retry_time) + 'min')
-        driver.quit()
-        time.sleep(args.retry_time * 60)
-        return False
+    # full = len(lesson_ele.find_elements("xpath", ".//div[contains(text(), 'Keine freien')]"))
+    # if full:
+    #     print('Lesson already fully booked. Retrying in ' + str(args.retry_time) + 'min')
+    #     driver.quit()
+    #     time.sleep(args.retry_time * 60)
+    #     return False
 
     # Save Lesson information for Telegram Message
     message = lesson_ele.text
     print("Booking: ", message)
-
     lesson_ele.click()
 
+    return message
+
+def asvz_enroll(args):
+    print('Starting browser')
+    options = Options()
+    # options.headless = True
+    # options.add_argument('--headless')
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("--private")  # open in private mode to avoid different login scenario
+    driver = webdriver.Chrome(options=options)
+
+    message = find_training_and_open_url(driver)
+
+    # Login if needed
     login_switchai(driver)
 
-    enroll_button_locator = (By.XPATH,
-                             "//button[@id='btnRegister']")
+    while True:
+        result = attemp_enroll(driver)
+        if result == True:
+            driver.quit()
+            return message
+        time.sleep(args.retry_time * 60)
+        driver.refresh()
+
+        
+def attemp_enroll(driver):
+    enroll_button_locator = (By.XPATH, "//button[@id='btnRegister']")    
     try:
         WebDriverWait(driver, args.max_wait).until(EC.visibility_of_element_located(enroll_button_locator))
     except:
         print('Element not visible. Probably fully booked. Retrying in ' + str(args.retry_time) + 'min')
-        driver.quit()
-        time.sleep(args.retry_time * 60)
         return False
 
-    try:
-        enroll_button = WebDriverWait(driver, 60).until(EC.element_to_be_clickable(enroll_button_locator))
-    except:
-        driver.quit()
-        raise ('Enroll button is disabled. Enrollment is likely not open yet.')
-
     print('Waiting for enroll button to be enabled')
-    WebDriverWait(driver, 90).until(EC.element_to_be_clickable(enroll_button_locator)).click()
-    time.sleep(10)
-    print("Successfully enrolled. Train hard and have fun!")
+    try:
+        enroll_button = WebDriverWait(driver, 2).until(EC.element_to_be_clickable(enroll_button_locator))
+        enroll_button.click()
+        time.sleep(3)
+    except:
+        raise ('Enroll button is disabled. Enrollment is likely not open yet.')
+        # return False
 
-    WebDriverWait(driver, 2)
-    driver.quit()  # close all tabs and window
-    return message
+    print("Successfully enrolled. Have fun!")
+    return True
+
 
 async def send_telegram_msg(msg):
     await telegram_send.send(messages=[msg])
 
 
-# ==== run enrollment script ============================================
+def main():
+    waiting_fct()
 
-# Check if the current version of geckodriver exists
-# and if it doesn't exist, download it automatically,
-# then add geckodriver to path
-geckodriver_autoinstaller.install()
+    # If lesson is already fully booked keep retrying in case place becomes available again
+    success = False
+    while not success:
+        try:
+            success = asvz_enroll(args)
+        except:
+            if args.telegram_notifications:
+                asyncio.run(send_telegram_msg('Script stopped. Exception occurred :('))
+            raise
 
-parser = argparse.ArgumentParser(description='ASVZ Bot script')
-parser.add_argument('config_file', type=str, help='config file name')
-parser.add_argument('--retry_time', type=float, default=5,
-                    help='Time between retrying when class is already fully booked in minutes')
-parser.add_argument('--max_wait', type=int, default=20, help='Max driver wait time (s) when attempting an action')
-parser.add_argument('-t', '--telegram_notifications', action='store_true', help='Whether to use telegram-send for notifications')
-args = parser.parse_args()
+    if args.telegram_notifications:
+        telegram_send.send(messages=['Enrolled successfully :D', "------------", success])
+    print("Script finished successfully")
 
-config = configparser.ConfigParser(allow_no_value=True)
-config.read(args.config_file)
-config.read('credentials.ini')
+if __name__ == "__main__":
+    # ==== run enrollment script ============================================
 
-waiting_fct()
+    # Check if the current version of geckodriver exists
+    # and if it doesn't exist, download it automatically,
+    # then add geckodriver to path
+    geckodriver_autoinstaller.install()
 
-# If lesson is already fully booked keep retrying in case place becomes available again
-success = False
-while not success:
-    try:
-        success = asvz_enroll(args)
-    except:
-        if args.telegram_notifications:
-            asyncio.run(send_telegram_msg('Script stopped. Exception occurred :('))
-        raise
+    parser = argparse.ArgumentParser(description='ASVZ Bot script')
+    parser.add_argument('config_file', type=str, help='config file name')
+    parser.add_argument('--retry_time', type=float, default=5,
+                        help='Time between retrying when class is already fully booked in minutes')
+    parser.add_argument('--max_wait', type=int, default=15, help='Max driver wait time (s) when attempting an action')
+    parser.add_argument('-t', '--telegram_notifications', action='store_true', help='Whether to use telegram-send for notifications')
+    args = parser.parse_args()
 
-if args.telegram_notifications:
-    telegram_send.send(messages=['Enrolled successfully :D', "------------", success])
-print("Script finished successfully")
+    config = configparser.ConfigParser(allow_no_value=True)
+    config.read(args.config_file)
+    config.read('credentials.ini')
+
+    main()
