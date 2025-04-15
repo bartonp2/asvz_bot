@@ -11,6 +11,7 @@ Description: Script for automatic enrollment in ASVZ classes
 import time
 import math
 import argparse
+import asyncio
 import configparser
 import telegram_send
 import geckodriver_autoinstaller
@@ -62,11 +63,33 @@ def waiting_fct():
     return
 
 
+def login_switchai(driver):
+    # switch to new window:
+    # time.sleep(2)  # necessary because tab needs to be open to get window handles
+    # tabs = driver.window_handles
+    # print(tabs)
+    # driver.switch_to.window(tabs[1])
+    WebDriverWait(driver, args.max_wait).until(EC.element_to_be_clickable(
+        (By.XPATH, "//button[@class='btn btn-default' and @title='Login']"))).click()
+    WebDriverWait(driver, args.max_wait).until(EC.element_to_be_clickable(
+        (By.XPATH, "//button[@class='btn btn-warning btn-block' and @title='SwitchAai Account Login']"))).click()
+
+    # choose organization:
+    organization = driver.find_element("xpath", "//input[@id='userIdPSelection_iddtext']")
+    organization.send_keys(config['creds']['organisation'])
+    organization.send_keys(u'\ue006')
+
+    driver.find_element("xpath", "//input[@id='username']").send_keys(config['creds']['username'])
+    driver.find_element("xpath", "//input[@id='password']").send_keys(config['creds']['password'])
+    driver.find_element("xpath", "//button[@type='submit']").click()
+    print('Logged in')
+
+
 def asvz_enroll(args):
     print('Attempting enroll...')
     options = Options()
-    options.headless = True
-    options.add_argument('--headless')
+    # options.headless = True
+    # options.add_argument('--headless')
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--no-sandbox")
@@ -111,30 +134,10 @@ def asvz_enroll(args):
 
     lesson_ele.click()
 
-    WebDriverWait(driver, args.max_wait).until(EC.element_to_be_clickable((By.XPATH,
-            "//a[@class='btn btn--block btn--icon relative btn--primary-border' or @class='btn btn--block btn--icon relative btn--primary']"))).click()
-
-    # switch to new window:
-    time.sleep(2)  # necessary because tab needs to be open to get window handles
-    tabs = driver.window_handles
-    driver.switch_to.window(tabs[1])
-    WebDriverWait(driver, args.max_wait).until(EC.element_to_be_clickable(
-        (By.XPATH, "//button[@class='btn btn-default ng-star-inserted' and @title='Login']"))).click()
-    WebDriverWait(driver, args.max_wait).until(EC.element_to_be_clickable(
-        (By.XPATH, "//button[@class='btn btn-warning btn-block' and @title='SwitchAai Account Login']"))).click()
-
-    # choose organization:
-    organization = driver.find_element("xpath", "//input[@id='userIdPSelection_iddtext']")
-    organization.send_keys(config['creds']['organisation'])
-    organization.send_keys(u'\ue006')
-
-    driver.find_element("xpath", "//input[@id='username']").send_keys(config['creds']['username'])
-    driver.find_element("xpath", "//input[@id='password']").send_keys(config['creds']['password'])
-    driver.find_element("xpath", "//button[@type='submit']").click()
-    print('Logged in')
+    login_switchai(driver)
 
     enroll_button_locator = (By.XPATH,
-                             "//button[@id='btnRegister' and @class='btn-primary btn enrollmentPlacePadding ng-star-inserted']")
+                             "//button[@id='btnRegister']")
     try:
         WebDriverWait(driver, args.max_wait).until(EC.visibility_of_element_located(enroll_button_locator))
     except:
@@ -150,13 +153,16 @@ def asvz_enroll(args):
         raise ('Enroll button is disabled. Enrollment is likely not open yet.')
 
     print('Waiting for enroll button to be enabled')
-    WebDriverWait(driver, 90).until(lambda d: 'disabled' not in enroll_button.get_attribute('class'))
-    enroll_button.click()
+    WebDriverWait(driver, 90).until(EC.element_to_be_clickable(enroll_button_locator)).click()
+    time.sleep(10)
     print("Successfully enrolled. Train hard and have fun!")
 
     WebDriverWait(driver, 2)
     driver.quit()  # close all tabs and window
     return message
+
+async def send_telegram_msg(msg):
+    await telegram_send.send(messages=[msg])
 
 
 # ==== run enrollment script ============================================
@@ -187,7 +193,7 @@ while not success:
         success = asvz_enroll(args)
     except:
         if args.telegram_notifications:
-            telegram_send.send(messages=['Script stopped. Exception occurred :('])
+            asyncio.run(send_telegram_msg('Script stopped. Exception occurred :('))
         raise
 
 if args.telegram_notifications:
